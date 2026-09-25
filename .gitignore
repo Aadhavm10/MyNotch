@@ -1,0 +1,12 @@
+# Build output (app builds and the MediaRemote adapter's CMake build)
+build/
+DerivedData/
+
+# Generated from project.yml by XcodeGen: run `xcodegen generate`
+MyNotch.xcodeproj/
+
+# Xcode user state
+xcuserdata/
+*.xcuserstate
+
+.DS_Store

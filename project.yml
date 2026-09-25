@@ -1,0 +1,67 @@
+name: MyNotch
+options:
+  bundleIdPrefix: com.aadhav
+  deploymentTarget:
+    macOS: "14.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    MACOSX_DEPLOYMENT_TARGET: "14.0"
+    # Stable local certificate (scripts/make-signing-cert.sh) so macOS privacy permissions survive rebuilds.
+    CODE_SIGN_IDENTITY: "MyNotch Local Signing"
+    CODE_SIGN_STYLE: Manual
+    DEVELOPMENT_TEAM: ""
+    ENABLE_HARDENED_RUNTIME: NO
+    ENABLE_USER_SCRIPT_SANDBOXING: NO
+    DEAD_CODE_STRIPPING: YES
+targets:
+  MyNotch:
+    type: application
+    platform: macOS
+    sources:
+      - path: MyNotch
+        excludes:
+          - "Resources/Info.plist"
+          - "Resources/MyNotch.entitlements"
+    info:
+      path: MyNotch/Resources/Info.plist
+      properties:
+        CFBundleDisplayName: MyNotch
+        CFBundleShortVersionString: "1.0"
+        CFBundleVersion: "1"
+        LSApplicationCategoryType: public.app-category.utilities
+        LSMinimumSystemVersion: "14.0"
+        LSUIElement: true
+        NSCameraUsageDescription: MyNotch uses the camera for the Mirror widget.
+        NSMicrophoneUsageDescription: MyNotch does not record audio; macOS may ask while the Mirror camera starts.
+        NSCalendarsFullAccessUsageDescription: MyNotch shows your upcoming events in the Calendar widget.
+        NSCalendarsUsageDescription: MyNotch shows your upcoming events in the Calendar widget.
+        NSAppleEventsUsageDescription: MyNotch runs your Siri Shortcuts.
+        CFBundleURLTypes:
+          - CFBundleURLName: com.aadhav.MyNotch
+            CFBundleURLSchemes: [mynotch]
+    entitlements:
+      path: MyNotch/Resources/MyNotch.entitlements
+      properties:
+        com.apple.security.app-sandbox: false
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.aadhav.MyNotch
+        PRODUCT_NAME: MyNotch
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        GENERATE_INFOPLIST_FILE: NO
+    postBuildScripts:
+      - name: Bundle MediaRemote adapter
+        basedOnDependencyAnalysis: false
+        script: |
+          set -e
+          SRC="${SRCROOT}/Vendor/mediaremote-adapter"
+          DST="${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/MediaRemoteAdapter"
+          if [ ! -d "${SRC}/build/MediaRemoteAdapter.framework" ]; then
+            "${SRCROOT}/scripts/build-adapter.sh"
+          fi
+          rm -rf "${DST}"
+          mkdir -p "${DST}"
+          cp "${SRC}/bin/mediaremote-adapter.pl" "${DST}/"
+          cp -R "${SRC}/build/MediaRemoteAdapter.framework" "${DST}/"
