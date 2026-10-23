@@ -11,7 +11,7 @@ struct NotchRootView: View {
 
     var body: some View {
         ZStack(alignment: .top) {
-            if vm.status != .open {
+            if vm.status != .open, vm.isDragging {
                 dragDetector
             }
             notch
@@ -62,6 +62,7 @@ struct NotchRootView: View {
     }
 
     /// Nearly invisible rect around the closed notch so drags are detected before reaching it.
+    /// Only shown mid-drag: it blocks clicks to the windows underneath (see `isDragging`).
     private var dragDetector: some View {
         Rectangle()
             .fill(Color.black.opacity(0.001))

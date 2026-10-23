@@ -51,6 +51,11 @@ final class NotchViewModel {
     private(set) var status: NotchStatus = .closed
     var tab: NotchTab = .nook
     var dropTargeting = false
+    /// True while the user drags something (files, images…) anywhere on screen. The drop
+    /// detector around the closed notch only exists then: the WindowServer routes clicks to any
+    /// drawn pixel, even a nearly transparent one, so a permanent detector would swallow clicks
+    /// on whatever sits just below the notch (e.g. browser tabs).
+    var isDragging = false
     var isHidden = false
     /// Keeps the notch open (used while tuning layout in Settings).
     var pinned = false {

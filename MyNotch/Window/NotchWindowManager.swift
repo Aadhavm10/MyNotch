@@ -106,14 +106,31 @@ final class NotchWindowManager {
 
     // MARK: Mouse
 
+    /// Drag pasteboard change count at the last mouse down; a drag session writes to the
+    /// pasteboard, so a change while the button is held means something is being dragged.
+    private var dragChangeCount = NSPasteboard(name: .drag).changeCount
+
     private func startMonitors() {
-        let move = EventMonitor(mask: [.mouseMoved, .leftMouseDragged]) { [weak self] _ in
-            self?.viewModel.mouseMoved(to: NSEvent.mouseLocation)
+        let move = EventMonitor(mask: [.mouseMoved, .leftMouseDragged]) { [weak self] event in
+            guard let self else { return }
+            if event.type == .leftMouseDragged {
+                if !viewModel.isDragging, NSPasteboard(name: .drag).changeCount != dragChangeCount {
+                    viewModel.isDragging = true
+                }
+            } else if viewModel.isDragging {
+                viewModel.isDragging = false // buttons are up, so any drag has ended
+            }
+            viewModel.mouseMoved(to: NSEvent.mouseLocation)
         }
         let down = EventMonitor(mask: [.leftMouseDown, .rightMouseDown]) { [weak self] _ in
-            self?.viewModel.mouseDown(at: NSEvent.mouseLocation)
+            guard let self else { return }
+            dragChangeCount = NSPasteboard(name: .drag).changeCount
+            viewModel.mouseDown(at: NSEvent.mouseLocation)
         }
-        monitors = [move, down]
+        let up = EventMonitor(mask: [.leftMouseUp]) { [weak self] _ in
+            self?.viewModel.isDragging = false
+        }
+        monitors = [move, down, up]
         monitors.forEach { $0.start() }
     }
 
