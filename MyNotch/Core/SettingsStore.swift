@@ -109,6 +109,12 @@ struct TraySettings: Codable, Equatable {
     var keepDays: Double = 0 // 0 = forever
 }
 
+struct ConvertSettings: Codable, Equatable {
+    var donutEnabled: Bool = true // hold Option while dragging files
+    var addToTray: Bool = true
+    var imageQuality: Double = 0.9
+}
+
 /// All user-configurable settings, persisted as JSON blobs in UserDefaults (one key per group).
 @Observable
 final class SettingsStore {
@@ -122,6 +128,7 @@ final class SettingsStore {
     var tray: TraySettings { didSet { save(tray, "tray") } }
     var clipboard: ClipboardSettings { didSet { save(clipboard, "clipboard") } }
     var screenshots: ScreenshotSettings { didSet { save(screenshots, "screenshots") } }
+    var convert: ConvertSettings { didSet { save(convert, "convert") } }
 
     private init() {
         general = Self.load("general", default: .init())
@@ -132,6 +139,7 @@ final class SettingsStore {
         tray = Self.load("tray", default: .init())
         clipboard = Self.load("clipboard", default: .init())
         screenshots = Self.load("screenshots", default: .init())
+        convert = Self.load("convert", default: .init())
     }
 
     func resetLayout() { layout = .init() }

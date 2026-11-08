@@ -9,6 +9,9 @@ struct NotchRootView: View {
     /// Extra margin around the closed notch that still catches file drags.
     private let dropDetectorRange: CGFloat = 36
 
+    /// Coordinate space that drop locations and the Tray's format chip frames share.
+    static let coordinateSpace = "notchRoot"
+
     var body: some View {
         ZStack(alignment: .top) {
             if vm.status != .open, vm.isDragging {
@@ -16,11 +19,8 @@ struct NotchRootView: View {
             }
             notch
         }
-        .onDrop(of: [.fileURL, .data], isTargeted: $vm.dropTargeting) { providers in
-            vm.tab = .tray
-            vm.tray.load(providers)
-            return true
-        }
+        .coordinateSpace(.named(Self.coordinateSpace))
+        .onDrop(of: [.fileURL, .data], delegate: NotchDropDelegate(vm: vm))
         .onChange(of: vm.dropTargeting) { _, targeting in
             if targeting {
                 if vm.settings.general.openTrayOnFileDrag { vm.open(tab: .tray) }
@@ -70,5 +70,48 @@ struct NotchRootView: View {
                 width: vm.closedSize.width + dropDetectorRange * 2,
                 height: vm.closedSize.height + dropDetectorRange
             )
+    }
+}
+
+/// One drop target for the whole notch: a drop on one of the Tray's format chips converts the
+/// files, anywhere else keeps them in the Tray. (Nested `.onDrop`s would flip `dropTargeting` off
+/// over the chips, and the notch would close mid-drag.)
+private struct NotchDropDelegate: DropDelegate {
+    let vm: NotchViewModel
+
+    func dropEntered(info: DropInfo) {
+        vm.dropTargeting = true
+        updateHover(info)
+    }
+
+    func dropUpdated(info: DropInfo) -> DropProposal? {
+        updateHover(info)
+        return DropProposal(operation: .copy)
+    }
+
+    func dropExited(info _: DropInfo) {
+        vm.dropTargeting = false
+        vm.hoveredConvertFormat = nil
+    }
+
+    func performDrop(info: DropInfo) -> Bool {
+        let providers = info.itemProviders(for: [.fileURL, .data])
+        if let format = vm.hoveredConvertFormat {
+            vm.converter.convert(providers, to: format)
+        } else {
+            vm.tab = .tray
+            vm.tray.load(providers)
+        }
+        vm.hoveredConvertFormat = nil
+        vm.dropTargeting = false
+        return true
+    }
+
+    private func updateHover(_ info: DropInfo) {
+        let hovered = vm.convertChipFrames.first { $0.value.contains(info.location) }?.key
+        if hovered != vm.hoveredConvertFormat {
+            vm.hoveredConvertFormat = hovered
+            if hovered != nil { Haptics.tap() }
+        }
     }
 }

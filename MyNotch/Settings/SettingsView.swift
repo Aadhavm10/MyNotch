@@ -19,6 +19,7 @@ struct SettingsView: View {
                 case .widgets: WidgetsPane()
                 case .pomodoro: PomodoroPane()
                 case .tray: TrayPane()
+                case .convert: ConvertPane()
                 case .clipboard: ClipboardPane()
                 case .screenshots: ScreenshotsPane()
                 case .about: AboutPane()
@@ -341,6 +342,44 @@ private struct TrayPane: View {
                     Button("Show Storage Folder") { NSWorkspace.shared.open(TrayStore.storageDirectory) }
                     Button("Clear Tray", role: .destructive) { tray.removeAll() }
                         .disabled(tray.items.isEmpty)
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Convert
+
+private struct ConvertPane: View {
+    @Bindable private var settings = SettingsStore.shared
+    @State private var ffmpegPath = FFmpeg.path
+
+    var body: some View {
+        Form {
+            Section {
+                Toggle("Show the format donut when dragging with ⌥", isOn: $settings.convert.donutEnabled)
+                Text("Hold Option while dragging files anywhere, then drop them on a format. Dragging onto the notch shows the formats under the Tray instead.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            Section("Output") {
+                Toggle("Also add converted files to the Tray", isOn: $settings.convert.addToTray)
+                SliderRow(title: "JPG / HEIC quality", value: $settings.convert.imageQuality, range: 0.5 ... 1, step: 0.05) {
+                    "\(Int(($0 * 100).rounded()))%"
+                }
+                Text("Converted files are saved next to the original. Files from the Tray or a browser go to Downloads.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            Section("ffmpeg") {
+                if let ffmpegPath {
+                    LabeledContent("Found", value: ffmpegPath.path)
+                    Text("WebP, MP3 and WebM are available, and video formats macOS can't open (MKV, WebM, AVI…) can be converted.")
+                        .font(.caption).foregroundStyle(.secondary)
+                } else {
+                    LabeledContent("Not installed") {
+                        Button("Check Again") { ffmpegPath = FFmpeg.path }
+                    }
+                    Text("Images, PDF, MP4, MOV, GIF, M4A and WAV work without it. For WebP, MP3 and WebM, run `brew install ffmpeg` in Terminal.")
+                        .font(.caption).foregroundStyle(.secondary)
                 }
             }
         }

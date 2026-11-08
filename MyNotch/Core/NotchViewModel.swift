@@ -39,6 +39,7 @@ enum LiveActivity: Equatable {
     case pomodoro
     case media
     case tray(Int)
+    case converting(Int)
 }
 
 @Observable
@@ -47,6 +48,7 @@ final class NotchViewModel {
     let nowPlaying = NowPlayingModel.shared
     let pomodoro = PomodoroTimer.shared
     let tray = TrayStore.shared
+    let converter = ConvertService.shared
 
     private(set) var status: NotchStatus = .closed
     var tab: NotchTab = .nook
@@ -56,6 +58,12 @@ final class NotchViewModel {
     /// drawn pixel, even a nearly transparent one, so a permanent detector would swallow clicks
     /// on whatever sits just below the notch (e.g. browser tabs).
     var isDragging = false
+    /// Formats the files being dragged can be converted to (empty when not dragging, or nothing fits).
+    var dragTargets: [ConvertFormat] = []
+    /// Tray format chip under the cursor during a drag; a drop there converts instead of keeping.
+    var hoveredConvertFormat: ConvertFormat?
+    /// Frames of the Tray's format chips, in `NotchRootView.coordinateSpace`.
+    var convertChipFrames: [ConvertFormat: CGRect] = [:]
     var isHidden = false
     /// Keeps the notch open (used while tuning layout in Settings).
     var pinned = false {
@@ -91,6 +99,7 @@ final class NotchViewModel {
     var liveActivity: LiveActivity? {
         let la = settings.liveActivities
         if let shot = ScreenshotStore.shared.justCaptured { return .screenshot(shot) }
+        if converter.activeCount > 0 { return .converting(converter.activeCount) }
         if la.pomodoro, pomodoro.isActive { return .pomodoro }
         if la.media, nowPlaying.showsLiveActivity { return .media }
         if la.trayCount, !tray.items.isEmpty { return .tray(tray.items.count) }
@@ -105,7 +114,7 @@ final class NotchViewModel {
         guard let liveActivity else { return 0 }
         switch liveActivity {
         case .pomodoro: return 50 // room for "25:00"
-        case .media, .tray, .screenshot: return liveActivityIconSize + 12
+        case .media, .tray, .screenshot, .converting: return liveActivityIconSize + 12
         }
     }
 

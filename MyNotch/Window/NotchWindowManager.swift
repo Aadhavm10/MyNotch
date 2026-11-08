@@ -116,9 +116,11 @@ final class NotchWindowManager {
             if event.type == .leftMouseDragged {
                 if !viewModel.isDragging, NSPasteboard(name: .drag).changeCount != dragChangeCount {
                     viewModel.isDragging = true
+                    viewModel.dragTargets = ConvertFormat.targets(forDrag: NSPasteboard(name: .drag))
                 }
+                if viewModel.isDragging { showDonutIfNeeded() }
             } else if viewModel.isDragging {
-                viewModel.isDragging = false // buttons are up, so any drag has ended
+                endDrag() // buttons are up, so any drag has ended
             }
             viewModel.mouseMoved(to: NSEvent.mouseLocation)
         }
@@ -128,10 +130,41 @@ final class NotchWindowManager {
             viewModel.mouseDown(at: NSEvent.mouseLocation)
         }
         let up = EventMonitor(mask: [.leftMouseUp]) { [weak self] _ in
-            self?.viewModel.isDragging = false
+            self?.endDrag()
         }
         monitors = [move, down, up]
         monitors.forEach { $0.start() }
+    }
+
+    private func endDrag() {
+        viewModel.isDragging = false
+        // The drop is delivered around the same mouse-up; give it time to read the targets first.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [weak self] in
+            guard let self, !viewModel.isDragging else { return }
+            viewModel.dragTargets = []
+            DonutController.shared.hide()
+        }
+    }
+
+    /// Holding Option mid-drag opens the format donut at the cursor, except near the notch,
+    /// whose Tray shows its own format strip.
+    private func showDonutIfNeeded() {
+        let donut = DonutController.shared
+        guard !donut.isShown,
+              SettingsStore.shared.convert.donutEnabled,
+              NSEvent.modifierFlags.contains(.option)
+        else { return }
+        let point = NSEvent.mouseLocation
+        let notchArea = viewModel.status == .open
+            ? viewModel.openRect.insetBy(dx: -40, dy: -40)
+            : viewModel.hotRect.insetBy(dx: -80, dy: -80)
+        guard !notchArea.contains(point) else { return }
+        // Some sources fill the drag pasteboard a moment after the drag starts.
+        if viewModel.dragTargets.isEmpty {
+            viewModel.dragTargets = ConvertFormat.targets(forDrag: NSPasteboard(name: .drag))
+        }
+        guard !viewModel.dragTargets.isEmpty else { return }
+        donut.show(at: point, formats: viewModel.dragTargets)
     }
 
     #if DEBUG

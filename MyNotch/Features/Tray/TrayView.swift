@@ -9,14 +9,25 @@ struct TrayView: View {
     /// would steal focus from the non-activating notch panel).
     @State private var confirmingClear = false
 
+    /// The drop lands in the tray itself (not on a format chip).
+    private var keepTargeted: Bool { vm.dropTargeting && vm.hoveredConvertFormat == nil }
+    private var showsConvertStrip: Bool { vm.dropTargeting && !vm.dragTargets.isEmpty }
+
     var body: some View {
-        RoundedRectangle(cornerRadius: 14)
-            .strokeBorder(style: StrokeStyle(lineWidth: 1.5, dash: [6, 5]))
-            .foregroundStyle(.white.opacity(vm.dropTargeting ? 0.5 : 0.15))
-            .background(
-                RoundedRectangle(cornerRadius: 14).fill(.white.opacity(vm.dropTargeting ? 0.08 : 0.03))
-            )
-            .overlay { content.padding(8) }
+        VStack(spacing: 6) {
+            RoundedRectangle(cornerRadius: 14)
+                .strokeBorder(style: StrokeStyle(lineWidth: 1.5, dash: [6, 5]))
+                .foregroundStyle(.white.opacity(keepTargeted ? 0.5 : 0.15))
+                .background(
+                    RoundedRectangle(cornerRadius: 14).fill(.white.opacity(keepTargeted ? 0.08 : 0.03))
+                )
+                .overlay { content.padding(8) }
+            if showsConvertStrip {
+                ConvertStrip(vm: vm)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+        }
+        .animation(.easeOut(duration: 0.15), value: showsConvertStrip)
     }
 
     @ViewBuilder private var content: some View {
@@ -33,15 +44,18 @@ struct TrayView: View {
                     .padding(.horizontal, 4)
                 }
                 .scrollIndicators(.never)
-                VStack(spacing: 6) {
-                    TrayActionButton(symbol: "airplayaudio", help: "AirDrop all") {
-                        Share.airDrop(store.items.map(\.storageURL))
-                    }
-                    TrayActionButton(symbol: "square.and.arrow.up", help: "Share all") {
-                        Share.picker(store.items.map(\.storageURL))
-                    }
-                    TrayActionButton(symbol: "trash", help: "Clear tray…") {
-                        confirmingClear = true
+                // Mid-drag the format strip takes the room these need, and they aren't useful then.
+                if !showsConvertStrip {
+                    VStack(spacing: 6) {
+                        TrayActionButton(symbol: "airplayaudio", help: "AirDrop all") {
+                            Share.airDrop(store.items.map(\.storageURL))
+                        }
+                        TrayActionButton(symbol: "square.and.arrow.up", help: "Share all") {
+                            Share.picker(store.items.map(\.storageURL))
+                        }
+                        TrayActionButton(symbol: "trash", help: "Clear tray…") {
+                            confirmingClear = true
+                        }
                     }
                 }
             }
@@ -113,6 +127,14 @@ private struct TrayItemView: View {
             Button("Open") { store.open(item) }
             Button("Show in Finder") { store.revealInFinder([item]) }
             Button("Copy") { store.copyToPasteboard([item]) }
+            let targets = ConvertFormat.targets(for: [item.storageURL])
+            if !targets.isEmpty {
+                Menu("Convert to…") {
+                    ForEach(targets) { format in
+                        Button(format.title) { ConvertService.shared.convert([item.storageURL], to: format) }
+                    }
+                }
+            }
             Divider()
             Button("AirDrop…") { Share.airDrop([item.storageURL]) }
             Button("Share…") { Share.picker([item.storageURL]) }

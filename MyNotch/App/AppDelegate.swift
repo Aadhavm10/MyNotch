@@ -29,12 +29,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
     }
 
     /// URL scheme for automation (Shortcuts, Raycast, scripts):
-    /// mynotch://open[?tab=nook|tray], mynotch://close, mynotch://pomodoro/{toggle,skip,reset}, mynotch://settings
+    /// mynotch://open[?tab=nook|tray], mynotch://close, mynotch://pomodoro/{toggle,skip,reset}, mynotch://settings,
+    /// mynotch://convert?to=png&path=/a.heic[&path=/b.heic]
     func application(_: NSApplication, open urls: [URL]) {
         let vm = NotchWindowManager.shared.viewModel
         for url in urls where url.scheme == "mynotch" {
-            let tab = URLComponents(url: url, resolvingAgainstBaseURL: false)?
-                .queryItems?.first { $0.name == "tab" }?.value.flatMap(NotchTab.init(rawValue:))
+            let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
+            let tab = items.first { $0.name == "tab" }?.value.flatMap(NotchTab.init(rawValue:))
+            let paths = items.filter { $0.name == "path" }.compactMap(\.value).map(URL.init(fileURLWithPath:))
             switch (url.host ?? "", url.path) {
             case ("open", _): vm.open(tab: tab)
             case ("close", _): vm.close()
@@ -42,10 +44,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
             case ("pomodoro", "/toggle"): PomodoroTimer.shared.toggle()
             case ("pomodoro", "/skip"): PomodoroTimer.shared.skip()
             case ("pomodoro", "/reset"): PomodoroTimer.shared.reset()
+            case ("convert", _):
+                guard let format = items.first(where: { $0.name == "to" })?.value.flatMap(ConvertFormat.init(rawValue:)),
+                      !paths.isEmpty
+                else { NSSound.beep(); continue }
+                ConvertService.shared.convert(paths, to: format)
             #if DEBUG
             case ("debug", "/snapshot"): NotchWindowManager.shared.debugSnapshot()
             case ("debug", "/simulate"):
-                let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
                 func number(_ name: String) -> CGFloat? {
                     items.first { $0.name == name }?.value.flatMap(Double.init).map { CGFloat($0) }
                 }
@@ -53,9 +59,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
                 NotchWindowManager.shared.debugSimulate(screenWidth: number("screenWidth"), notchSize: notch)
             case ("debug", "/pin"):
                 // Holds the notch open for screenshots even while the mouse is elsewhere.
-                let on = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems?.first { $0.name == "on" }?.value == "1"
+                let on = items.first { $0.name == "on" }?.value == "1"
                 vm.pinned = on
                 if !on { vm.close() }
+            case ("debug", "/donut"):
+                // Shows the format donut for `path`s at x,y (global coordinates), as if Option-dragged there.
+                let on = items.first { $0.name == "on" }?.value != "0"
+                let x = items.first { $0.name == "x" }?.value.flatMap(Double.init) ?? 300
+                let y = items.first { $0.name == "y" }?.value.flatMap(Double.init) ?? 300
+                if on {
+                    DonutController.shared.show(at: NSPoint(x: x, y: y), formats: ConvertFormat.targets(for: paths))
+                } else {
+                    DonutController.shared.hide()
+                }
+            case ("debug", "/drag"):
+                // Shows the Tray's format strip for `path`s as if they were being dragged over the notch.
+                let on = items.first { $0.name == "on" }?.value == "1"
+                vm.dragTargets = on ? ConvertFormat.targets(for: paths) : []
+                vm.dropTargeting = on
             #endif
             default: NSSound.beep()
             }

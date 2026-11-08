@@ -2,7 +2,7 @@ import AppKit
 import SwiftUI
 
 enum SettingsPane: String, CaseIterable, Identifiable {
-    case general, layout, widgets, pomodoro, tray, clipboard, screenshots, about
+    case general, layout, widgets, pomodoro, tray, convert, clipboard, screenshots, about
     var id: String { rawValue }
 
     var title: String {
@@ -12,6 +12,7 @@ enum SettingsPane: String, CaseIterable, Identifiable {
         case .widgets: "Widgets"
         case .pomodoro: "Pomodoro"
         case .tray: "Tray"
+        case .convert: "Convert"
         case .clipboard: "Clipboard"
         case .screenshots: "Screenshots"
         case .about: "About"
@@ -25,6 +26,7 @@ enum SettingsPane: String, CaseIterable, Identifiable {
         case .widgets: "square.grid.2x2"
         case .pomodoro: "timer"
         case .tray: "tray.full"
+        case .convert: "arrow.triangle.2.circlepath"
         case .clipboard: "doc.on.clipboard"
         case .screenshots: "camera.viewfinder"
         case .about: "info.circle"

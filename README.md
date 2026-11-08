@@ -18,6 +18,7 @@ While the notch is closed, it can show a small indicator on each side of the cam
 | Activity | Left | Right | When |
 |---|---|---|---|
 | **New screenshot** | Thumbnail | Green 📸 | For 4 seconds after you take a screenshot |
+| **Converting** | Spinner | Files left | While files are being converted |
 | **Pomodoro** | Progress ring | `mm:ss` countdown | While a Pomodoro session is active |
 | **Now Playing** | Album art | Animated visualizer | While music or video plays (hides after it's been paused for 10s) |
 | **Tray** | Tray icon | File count | When the tray has files in it |
@@ -35,6 +36,24 @@ Hover over the notch (or click it, if you prefer) to open it. The header has one
 | **Screenshots** 📸 | Your recent screenshots and screen recordings. Click to copy, drag into any app, keep in the tray, or move to the Trash. |
 | **Sound** 🔊 | Switch audio output (speakers, AirPods, monitors, AirPlay) with one click, and set the volume or mute. |
 
+### Convert files
+Change a file's type without opening another app. Two ways to start:
+- **The donut:** hold **⌥ Option** while dragging files anywhere on screen. A wheel of formats opens at the cursor; drop on one to convert. Drop in the middle to cancel.
+- **The notch:** drag files onto the notch. Below the Tray, a row of formats appears: drop on one to convert, or anywhere else to keep the files in the Tray as usual. Tray items also have **Convert to…** in their right-click menu.
+
+Only formats that fit the files you're dragging are offered:
+
+| Files | Convert to |
+|---|---|
+| Images (JPG, PNG, HEIC, TIFF, GIF, BMP, WebP…) | JPG, PNG, HEIC, TIFF, PDF (several images → one PDF), WebP\* |
+| PDF | PNG or JPG, one image per page (several pages go in a folder); Word, Text or Markdown; several PDFs → Merge PDF |
+| Video (MOV, MP4, M4V; MKV, WebM\*) | MP4, MOV, GIF (first 30s, 480px), M4A (audio only), WebM\*, MP3\* |
+| Audio (M4A, WAV, AIFF, MP3, FLAC) | M4A, WAV, MP3\* |
+
+\* Needs [ffmpeg](https://ffmpeg.org): `brew install ffmpeg`. Everything else uses macOS's own frameworks, with nothing to install.
+
+Converted files are saved **next to the original** (`photo.png`, then `photo 2.png`…) and also added to the Tray. Files that came from the Tray or a browser are saved to **Downloads**.
+
 ### Widgets in the Nook
 - **Media**: album art (click it to jump to the app), title and artist, a draggable scrubber, play/pause/skip, and a visualizer tinted by the artwork. Works with Spotify, Apple Music, Safari, Chrome and anything else that reports Now Playing to macOS.
 - **Calendar**: today's and upcoming events from the calendars you choose. Click an event to open Calendar.
@@ -47,6 +66,7 @@ Everything is in **Settings** (menu bar icon → Settings…, or the ⚙ in the 
 - **General**: open on hover or click, hover and close delays, open the tray when you drag in files, haptics, fake notch on screens without one, live activities, launch at login.
 - **Layout**: Nook and tab sizes, widget spacing and dividers, padding, corner radius, notch width fine-tuning. "Keep the notch open while editing" lets you watch changes live.
 - **Widgets**: which widgets appear in the Nook and in what order, calendar selection, Shortcuts buttons, Mirror camera.
+- **Convert**: turn the donut off, choose whether results go to the Tray, JPG/HEIC quality, and whether ffmpeg was found.
 - **Pomodoro**, **Tray**, **Clipboard**, **Screenshots**: durations and alerts, storage and retention, history size, ignored apps, and so on.
 
 ### Menu bar and automation
@@ -59,6 +79,7 @@ MyNotch also responds to `mynotch://` links, which you can use from Shortcuts, R
 | `mynotch://close` | Close the notch |
 | `mynotch://settings` | Open Settings |
 | `mynotch://pomodoro/toggle` · `/skip` · `/reset` | Control the Pomodoro timer |
+| `mynotch://convert?to=png&path=/path/to/file.heic` | Convert files (repeat `path` for several; `to` is `jpg`, `png`, `heic`, `tiff`, `webp`, `pdf`, `mergePDF`, `docx`, `txt`, `md`, `mp4`, `mov`, `webm`, `gif`, `m4a`, `mp3` or `wav`) |
 
 For example, from Terminal: `open "mynotch://open?tab=clipboard"`.
 
@@ -196,6 +217,7 @@ MyNotch/
     │   ├── Shortcuts/    ShortcutsService, ShortcutsWidget
     │   ├── Mirror/       CameraService, MirrorWidget
     │   ├── Tray/         TrayStore, TrayView, Thumbnailer, Share
+    │   ├── Convert/      ConvertFormat, Converters, PDFText, ConvertService, DonutPanel, DonutView, ConvertStrip
     │   ├── Clipboard/    ClipboardStore, ClipboardView
     │   ├── Screenshots/  ScreenshotStore, ScreenshotShelfView
     │   └── Audio/        AudioOutputService, SoundView
@@ -217,10 +239,10 @@ MyNotch/
   - The **open size** comes from Layout settings, then gets two limits: it's never wider than the screen minus a margin (a 13" Air at "Larger Text" is only 1024pt wide), and never narrower than the header needs to fit on both sides of the camera (the notch is wider in points at "More Space").
   - The **header** keeps a gap exactly the notch's width plus a little clearance, centered, with equal-width sides for the tabs and the settings button. That way controls never end up behind the camera, whatever the notch size.
   - The Nook row is laid out with **explicit widths** (fixed-width widgets like Mirror first, then the rest split by weight), so widgets can never overflow and clip each other.
-- **Live activity priority:** screenshot flash → Pomodoro → Now Playing → tray count.
+- **Live activity priority:** screenshot flash → converting → Pomodoro → Now Playing → tray count.
 
 ### Settings: `SettingsStore`
-Settings are grouped into Codable structs (general, layout, widgets, liveActivities, pomodoro, tray, clipboard, screenshots). Each is saved as JSON in `UserDefaults` under `settings.<group>`. When loading, **saved values are layered over the defaults**, so adding a new option in an update never resets the rest of a group.
+Settings are grouped into Codable structs (general, layout, widgets, liveActivities, pomodoro, tray, clipboard, screenshots, convert). Each is saved as JSON in `UserDefaults` under `settings.<group>`. When loading, **saved values are layered over the defaults**, so adding a new option in an update never resets the rest of a group.
 
 ### How each feature works
 
@@ -236,6 +258,18 @@ Since macOS 15.4, apps can no longer call Apple's private **MediaRemote** framew
 - Dragging an item out hands over a **temporary copy**, so the receiving app can't empty the tray by moving the file.
 - Quick Look thumbnails are generated and cached by `Thumbnailer`. AirDrop and Share go through `NSSharingService`.
 - "Clear tray" asks first with `ConfirmOverlay`, a confirmation shown inside the notch. A system alert would take focus from the non-activating panel.
+
+#### Convert
+- `ConvertFormat` decides which formats fit the dragged files, using their UTTypes. It also checks whether macOS can read them (`CGImageSourceCopyTypeIdentifiers`, `AVURLAsset.audiovisualTypes`) and whether ffmpeg is installed.
+- `Converters` does the work:
+  - **ImageIO** for images. JPG gets a white background, because JPG has no transparency.
+  - **CoreGraphics/PDFKit** for PDFs.
+  - **`PDFText`** for PDF → Word/Text/Markdown. PDFKit gives positioned lines, so it rebuilds paragraphs: wrapped lines are joined (also across pages), cells on one row are joined with tabs, and page numbers are dropped. Word keeps fonts, bold and italics (via `NSAttributedString`'s Office Open XML writer). Markdown turns bigger-than-body text into headings, bold/italic into `**`/`*`, bullets into `- ` lists and tab rows into tables. Layout (columns, complex tables, images) is lost, and scanned PDFs have no text.
+  - **AVFoundation** for video and audio. MP4/MOV try a passthrough export first (instant and lossless), then re-encode. WAV goes through `AVAudioFile`. GIF frames come from `AVAssetImageGenerator`.
+  - **ffmpeg**, found in Homebrew's `/opt/homebrew/bin` or `/usr/local/bin`, for anything macOS can't read or write.
+- `ConvertService` runs conversions in the background, picks a free file name next to the original (or in Downloads), and adds the results to the Tray.
+- **The donut:** the window manager's global drag monitor already knows when a file drag is in progress. If Option is held and the cursor is away from the notch, it opens `DonutPanel` at the cursor. That's a transparent panel at `.popUpMenu` level, which macOS treats as a drop target mid-drag. `DonutView` turns the drop point into a slice with `atan2`.
+- **The notch strip:** the whole notch has one `DropDelegate` (`NotchRootView`). It hit-tests the format chips' frames, so the Tray's drop highlight and hold-open behaviour don't flicker as the cursor moves between the Tray and the chips.
 
 #### Clipboard
 - macOS doesn't announce clipboard changes, so `ClipboardStore` checks the pasteboard's `changeCount` every 0.5s. That's a single integer read, so it costs almost nothing.

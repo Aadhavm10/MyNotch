@@ -42,6 +42,10 @@ struct ClosedNotchView: View {
             Image(systemName: "tray.full.fill")
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(.white.opacity(0.85))
+        case .converting:
+            ProgressView()
+                .controlSize(.small)
+                .tint(.white)
         case nil:
             EmptyView()
         }
@@ -60,7 +64,7 @@ struct ClosedNotchView: View {
         case .media:
             VisualizerView(isPlaying: vm.nowPlaying.isPlaying, tint: vm.nowPlaying.tint, barCount: 4)
                 .frame(width: iconSize, height: iconSize * 0.7)
-        case let .tray(count):
+        case let .tray(count), let .converting(count):
             Text("\(count)")
                 .font(.system(size: 12, weight: .bold, design: .rounded))
                 .foregroundStyle(.white.opacity(0.85))

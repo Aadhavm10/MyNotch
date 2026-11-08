@@ -96,7 +96,7 @@ final class TrayStore {
     }
 
     /// Resolves a dragged item to a file URL (blocking; call off the main thread).
-    private static func fileURL(from provider: NSItemProvider) -> URL? {
+    static func fileURL(from provider: NSItemProvider) -> URL? {
         var result: URL?
         let sem = DispatchSemaphore(value: 0)
         if provider.canLoadObject(ofClass: URL.self) {
