@@ -42,6 +42,7 @@ final class ScreenshotStore {
     private init() {
         // Picks up a changed screenshot location and ages items out of the time window.
         refreshTimer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in self?.reload() }
+        refreshTimer?.tolerance = 10
         enabledChanged()
     }
 

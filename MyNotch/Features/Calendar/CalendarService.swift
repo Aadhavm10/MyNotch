@@ -22,6 +22,7 @@ final class CalendarService {
         ) { [weak self] _ in self?.refresh() }
         // Roll "upcoming" forward as time passes.
         refreshTimer = Timer.scheduledTimer(withTimeInterval: 300, repeats: true) { [weak self] _ in self?.refresh() }
+        refreshTimer?.tolerance = 30
         if hasAccess { refresh() }
     }
 

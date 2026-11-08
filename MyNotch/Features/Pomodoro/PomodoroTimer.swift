@@ -122,6 +122,7 @@ final class PomodoroTimer {
         state = .running(end: end)
         remaining = seconds
         let timer = Timer(timeInterval: 0.5, repeats: true) { [weak self] _ in self?.tick() }
+        timer.tolerance = 0.1
         RunLoop.main.add(timer, forMode: .common)
         ticker = timer
     }

@@ -102,6 +102,7 @@ final class NotchWindowManager {
         screenTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
             self?.relocate()
         }
+        screenTimer?.tolerance = 0.5
     }
 
     // MARK: Mouse

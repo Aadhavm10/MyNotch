@@ -84,6 +84,7 @@ final class ClipboardStore {
             removeAllFiles(keeping: [])
         }
         let timer = Timer(timeInterval: 0.5, repeats: true) { [weak self] _ in self?.poll() }
+        timer.tolerance = 0.2 // lets macOS batch this wakeup with others
         RunLoop.main.add(timer, forMode: .common)
         self.timer = timer
     }
